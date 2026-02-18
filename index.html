@@ -10,54 +10,45 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-        body { font-family: 'Inter', sans-serif; background-color: #f1f5f9; }
-        .step-card { animation: slideUp 0.4s ease-out; }
-        @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; background-color: #f8fafc; }
     </style>
 </head>
 <body>
     <div id="root"></div>
-
     <script type="text/babel">
         const { useState, useEffect } = React;
 
-        // --- ÖNEMLİ: API ANAHTARINIZI VE TELEFONUNUZU BURAYA YAZIN ---
+        // --- ÖNEMLİ: BİLGİLERİNİZİ AŞAĞIYA DİKKATLİCE YAZIN ---
         const API_KEY = "AIzaSyDSjdj1mRd1QOCCwP6FwHdWi7S_CJ0ooNU"; 
-        const DOKTOR_TELEFON = "905XXXXXXXXXX"; // Numaranızı buraya yazın
+        const DOKTOR_TEL = "905XXXXXXXXXX"; 
 
         const App = () => {
             const [step, setStep] = useState(1);
             const [loading, setLoading] = useState(false);
             const [formData, setFormData] = useState({
-                adSoyad: '', yas: '', boyKilo: '', meslek: '',
+                adSoyad: '', yas: '', meslek: '',
                 sikayet: '', sure: '',
-                agriBolgesi: [], ekBulgular: [],
+                bulgular: [],
                 gecmisAmeliyat: '', kronikHastalik: ''
             });
             const [aiSummary, setAiSummary] = useState('');
 
             useEffect(() => { lucide.createIcons(); }, [step]);
 
-            const updateField = (field, value) => setFormData(prev => ({ ...prev, [field]: value }));
-
-            const handleCheck = (field, item) => {
-                const list = formData[field].includes(item) 
-                    ? formData[field].filter(i => i !== item) 
-                    : [...formData[field], item];
-                updateField(field, list);
+            const updateField = (f, v) => setFormData(prev => ({ ...prev, [f]: v }));
+            
+            const handleCheck = (item) => {
+                const list = formData.bulgular.includes(item) 
+                    ? formData.bulgular.filter(i => i !== item) 
+                    : [...formData.bulgular, item];
+                updateField('bulgular', list);
             };
 
             const generateSummary = async () => {
                 setLoading(true);
                 try {
-                    const prompt = `Sen bir tıbbi asistansın. Aşağıdaki hasta verilerini bir omurga cerrahı için profesyonel, kısa ve öz bir klinik özete dönüştür:
-                    Hasta: ${formData.adSoyad}, Yaş: ${formData.yas}, Meslek: ${formData.meslek}
-                    Ana Şikayet: ${formData.sikayet} (Süre: ${formData.sure})
-                    Ağrı Bölgeleri: ${formData.agriBolgesi.join(', ')}
-                    Bulgular: ${formData.ekBulgular.join(', ')}
-                    Geçmiş: ${formData.gecmisAmeliyat}, Kronik: ${formData.kronikHastalik}`;
-
+                    const prompt = `Aşağıdaki hastayı bir omurga cerrahı için profesyonelce özetle:\nHasta: ${formData.adSoyad}, ${formData.yas} yaşında. Şikayet: ${formData.sikayet} (Süre: ${formData.sure}). Bulgular: ${formData.bulgular.join(', ')}. Tıbbi Geçmiş: ${formData.gecmisAmeliyat}, ${formData.kronikHastalik}.`;
                     const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${API_KEY}`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -67,92 +58,70 @@
                     setAiSummary(data.candidates[0].content.parts[0].text);
                     setStep(5);
                 } catch (e) {
-                    setAiSummary("Özet hazırlanamadı, lütfen verileri manuel iletin.");
+                    setAiSummary("Özet hazırlanamadı. Lütfen hastanın girdiği verileri manuel olarak değerlendirin.");
                     setStep(5);
                 }
                 setLoading(false);
             };
 
-            const shareWhatsApp = () => {
-                const msg = encodeURIComponent(`*YENİ HASTA ÖN DEĞERLENDİRME*\n\n*Hasta:* ${formData.adSoyad}\n*Yaş:* ${formData.yas}\n\n*YAPAY ZEKA ANALİZİ:*\n${aiSummary}`);
-                window.open(`https://wa.me/${DOKTOR_TELEFON}?text=${msg}`);
-            };
-
             return (
                 <div className="max-w-md mx-auto min-h-screen p-4 flex flex-col justify-center">
-                    <div className="bg-white rounded-[2rem] shadow-xl overflow-hidden border border-slate-200">
+                    <div className="bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden">
                         <div className="bg-slate-900 p-6 text-white">
-                            <div className="flex justify-between items-center">
-                                <div>
-                                    <h1 className="text-lg font-bold">Ön Değerlendirme</h1>
-                                    <p className="text-slate-400 text-xs uppercase tracking-widest">Adım {step} / 5</p>
-                                </div>
-                                <i data-lucide="activity" className="text-blue-400"></i>
-                            </div>
+                            <h1 className="text-xl font-bold">Hasta Ön Değerlendirme</h1>
+                            <p className="text-slate-400 text-xs">Adım {step} / 5</p>
                         </div>
 
                         <div className="p-8">
                             {step === 1 && (
-                                <div className="step-card space-y-4">
-                                    <h2 className="text-xl font-bold text-slate-800">Kişisel Bilgiler</h2>
-                                    <input type="text" placeholder="Ad Soyad" className="w-full p-4 bg-slate-50 rounded-xl border-none ring-1 ring-slate-200" value={formData.adSoyad} onChange={e => updateField('adSoyad', e.target.value)} />
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <input type="number" placeholder="Yaş" className="p-4 bg-slate-50 rounded-xl border-none ring-1 ring-slate-200" value={formData.yas} onChange={e => updateField('yas', e.target.value)} />
-                                        <input type="text" placeholder="Meslek" className="p-4 bg-slate-50 rounded-xl border-none ring-1 ring-slate-200" value={formData.meslek} onChange={e => updateField('meslek', e.target.value)} />
-                                    </div>
+                                <div className="space-y-4">
+                                    <h2 className="text-lg font-bold">Kişisel Bilgiler</h2>
+                                    <input type="text" placeholder="Ad Soyad" className="w-full p-4 bg-slate-50 rounded-xl" value={formData.adSoyad} onChange={e => updateField('adSoyad', e.target.value)} />
+                                    <input type="number" placeholder="Yaş" className="w-full p-4 bg-slate-50 rounded-xl" value={formData.yas} onChange={e => updateField('yas', e.target.value)} />
+                                    <input type="text" placeholder="Meslek" className="w-full p-4 bg-slate-50 rounded-xl" value={formData.meslek} onChange={e => updateField('meslek', e.target.value)} />
                                 </div>
                             )}
 
                             {step === 2 && (
-                                <div className="step-card space-y-4">
-                                    <h2 className="text-xl font-bold text-slate-800">Şikayetiniz</h2>
-                                    <textarea placeholder="Temel şikayetinizi yazın..." className="w-full p-4 bg-slate-50 rounded-xl border-none ring-1 ring-slate-200 h-24" value={formData.sikayet} onChange={e => updateField('sikayet', e.target.value)} />
-                                    <input type="text" placeholder="Ne kadar süredir var?" className="w-full p-4 bg-slate-50 rounded-xl border-none ring-1 ring-slate-200" value={formData.sure} onChange={e => updateField('sure', e.target.value)} />
+                                <div className="space-y-4">
+                                    <h2 className="text-lg font-bold">Şikayetiniz</h2>
+                                    <textarea placeholder="Şikayetinizi kısaca anlatın..." className="w-full p-4 bg-slate-50 rounded-xl h-24" value={formData.sikayet} onChange={e => updateField('sikayet', e.target.value)} />
+                                    <input type="text" placeholder="Ne kadar süredir devam ediyor?" className="w-full p-4 bg-slate-50 rounded-xl" value={formData.sure} onChange={e => updateField('sure', e.target.value)} />
                                 </div>
                             )}
 
                             {step === 3 && (
-                                <div className="step-card space-y-4">
-                                    <h2 className="text-xl font-bold text-slate-800">Belirtiler</h2>
+                                <div className="space-y-4">
+                                    <h2 className="text-lg font-bold">Belirtiler</h2>
                                     <div className="grid grid-cols-1 gap-2">
-                                        {['Bel Ağrısı', 'Boyun Ağrısı', 'Bacakta Uyuşma', 'Kolda Güç Kaybı'].map(item => (
-                                            <button key={item} onClick={() => handleCheck('agriBolgesi', item)} className={`p-4 rounded-xl text-left transition ${formData.agriBolgesi.includes(item) ? 'bg-blue-600 text-white' : 'bg-slate-50 text-slate-700'}`}>
-                                                {item}
-                                            </button>
+                                        {['Bel Ağrısı', 'Boyun Ağrısı', 'Bacakta Uyuşma/Güç Kaybı', 'Kolda Uyuşma/Güç Kaybı', 'Yürüme Güçlüğü'].map(i => (
+                                            <button key={i} onClick={() => handleCheck(i)} className={`p-4 rounded-xl text-left border ${formData.bulgular.includes(i) ? 'bg-blue-600 text-white border-blue-600' : 'bg-slate-50 border-slate-200'}`}>{i}</button>
                                         ))}
                                     </div>
                                 </div>
                             )}
 
                             {step === 4 && (
-                                <div className="step-card space-y-4">
-                                    <h2 className="text-xl font-bold text-slate-800">Tıbbi Geçmiş</h2>
-                                    <input type="text" placeholder="Geçmiş ameliyatlar" className="w-full p-4 bg-slate-50 rounded-xl border-none ring-1 ring-slate-200" value={formData.gecmisAmeliyat} onChange={e => updateField('gecmisAmeliyat', e.target.value)} />
-                                    <input type="text" placeholder="Kronik hastalıklar" className="w-full p-4 bg-slate-50 rounded-xl border-none ring-1 ring-slate-200" value={formData.kronikHastalik} onChange={e => updateField('kronikHastalik', e.target.value)} />
+                                <div className="space-y-4">
+                                    <h2 className="text-lg font-bold">Tıbbi Geçmiş</h2>
+                                    <input type="text" placeholder="Geçmiş ameliyatlarınız?" className="w-full p-4 bg-slate-50 rounded-xl" value={formData.gecmisAmeliyat} onChange={e => updateField('gecmisAmeliyat', e.target.value)} />
+                                    <input type="text" placeholder="Kronik hastalıklarınız?" className="w-full p-4 bg-slate-50 rounded-xl" value={formData.kronikHastalik} onChange={e => updateField('kronikHastalik', e.target.value)} />
                                 </div>
                             )}
 
                             {step === 5 && (
-                                <div className="step-card text-center space-y-6">
-                                    <div className="p-4 bg-blue-50 rounded-2xl text-sm text-blue-900 leading-relaxed italic border border-blue-100">
-                                        "{aiSummary}"
-                                    </div>
-                                    <button onClick={shareWhatsApp} className="w-full bg-[#25D366] text-white p-5 rounded-2xl font-bold flex items-center justify-center gap-2 shadow-lg hover:opacity-90">
-                                        <i data-lucide="send"></i> WHATSAPP İLE DOKTORA İLET
-                                    </button>
+                                <div className="space-y-6 text-center">
+                                    <div className="p-4 bg-blue-50 rounded-2xl text-sm italic border border-blue-100">{aiSummary}</div>
+                                    <button onClick={() => window.open(`https://wa.me/${DOKTOR_TEL}?text=${encodeURIComponent(aiSummary)}`)} className="w-full bg-[#25D366] text-white p-5 rounded-2xl font-bold shadow-lg">WHATSAPP İLE GÖNDER</button>
                                 </div>
                             )}
 
                             {step < 5 && (
-                                <div className="mt-8 flex justify-between items-center">
-                                    <button onClick={() => setStep(s => s - 1)} disabled={step === 1} className={`text-sm font-bold ${step === 1 ? 'opacity-0' : 'text-slate-400'}`}>GERİ</button>
-                                    {step === 4 ? (
-                                        <button onClick={generateSummary} disabled={loading} className="bg-blue-600 text-white px-8 py-4 rounded-xl font-bold shadow-lg">
-                                            {loading ? 'HAZIRLANIYOR...' : 'TAMAMLA'}
-                                        </button>
-                                    ) : (
-                                        <button onClick={() => setStep(s => s + 1)} className="bg-slate-900 text-white px-8 py-4 rounded-xl font-bold">İLERİ</button>
-                                    )}
+                                <div className="mt-8 flex justify-between">
+                                    <button onClick={() => setStep(s => s - 1)} disabled={step === 1} className={`font-bold ${step === 1 ? 'text-slate-200' : 'text-slate-400'}`}>GERİ</button>
+                                    <button onClick={() => step === 4 ? generateSummary() : setStep(s => s + 1)} className="bg-slate-900 text-white px-10 py-3 rounded-xl font-bold">
+                                        {loading ? 'HAZIRLANIYOR...' : (step === 4 ? 'BİTİR' : 'İLERİ')}
+                                    </button>
                                 </div>
                             )}
                         </div>
