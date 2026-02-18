@@ -13,7 +13,7 @@
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
         body { font-family: 'Inter', sans-serif; background: #f8fafc; color: #1e293b; }
         @media print { .no-print { display: none !important; } body { background: white; } }
-        .step-card { animation: fadeIn 0.4s ease-out; }
+        .step-entry { animation: fadeIn 0.4s ease-out; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
     </style>
 </head>
@@ -22,7 +22,7 @@
     <script type="text/babel">
         const { useState, useEffect } = React;
 
-        // --- AYARLAR: BURAYI DOLDURUN ---
+        // --- AYARLAR ---
         const API_KEY = "AIzaSyDSjdj1mRd1QOCCwP6FwHdWi7S_CJ0ooNU"; 
         const DOKTOR_TEL = "905433526012"; 
 
@@ -31,13 +31,10 @@
             const [loading, setLoading] = useState(false);
             const [formData, setFormData] = useState({
                 adSoyad: '', yas: '', boy: '', kilo: '', meslek: '', sehir: '', tel: '',
-                sikayetler: [], sikayetBaslangic: '',
-                omurgaIlaclar: '', fizikTedavi: 'Hayır',
-                girisimselTedavi: 'Hayır', girisimselDetay: '',
-                ameliyat: 'Hayır', ameliyatDetay: '',
-                sonFilm: '', genelSaglik: '',
-                kanSulandirici: 'Hayır', kanSulandiriciAd: '',
-                tumIlaclar: ''
+                sikayetler: [], sikayetBaslangic: '', omurgaIlaclar: '',
+                fizikTedavi: 'Hayır', girisimselTedavi: 'Hayır', girisimselDetay: '',
+                ameliyat: 'Hayır', ameliyatDetay: '', sonFilm: '', genelSaglik: '', 
+                kanSulandirici: 'Hayır', kanSulandiriciAd: '', tumIlaclar: ''
             });
             const [aiSummary, setAiSummary] = useState('');
 
@@ -52,53 +49,69 @@
             const generateAI = async () => {
                 setLoading(true);
                 try {
-                    // Adres v1beta olarak güncellendi (Flash 1.5 için en kararlı adres)
+                    // v1beta adresi en güncel model olan Flash 1.5 için optimize edildi
                     const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${API_KEY}`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ contents: [{ parts: [{ text: `Sen bir omurga cerrahı asistanısın. Aşağıdaki verileri 3-4 cümlelik tıbbi özet yap: Hasta: ${formData.adSoyad}, ${formData.yas}y. Şikayet: ${formData.sikayetler.join(', ')}. Başlangıç: ${formData.sikayetBaslangic}. İlaçlar: ${formData.omurgaIlaclar}. Ameliyat: ${formData.ameliyatDetay}. Girişimsel: ${formData.girisimselDetay}. Kan Sulandırıcı: ${formData.kanSulandiriciAd}.` }] }] })
+                        body: JSON.stringify({ contents: [{ parts: [{ text: `Sen bir omurga cerrahı asistanısın. Aşağıdaki hasta verilerini 3-4 cümlelik tıbbi özet yap: Hasta: ${formData.adSoyad}, ${formData.yas}y. Şikayet: ${formData.sikayetler.join(', ')}. Ameliyat: ${formData.ameliyatDetay}. Kan Sulandırıcı: ${formData.kanSulandiriciAd}.` }] }] })
                     });
+                    
                     const data = await res.json();
-                    if (data.error) throw new Error(data.error.message);
-                    setAiSummary(data.candidates[0].content.parts[0].text);
-                    setStep(6);
+                    
+                    if (data.error) {
+                        console.error(data.error);
+                        throw new Error(data.error.message);
+                    }
+
+                    if (data.candidates && data.candidates[0].content.parts[0].text) {
+                        setAiSummary(data.candidates[0].content.parts[0].text);
+                        setStep(6);
+                    } else {
+                        throw new Error("Boş sonuç");
+                    }
                 } catch (e) {
-                    setAiSummary("Yapay zeka şu an meşgul, ancak tüm verileriniz WhatsApp mesajında düzenli şekilde iletilecektir.");
+                    // Yapay zeka hata verse bile verileri derli toplu hazırlıyoruz
+                    setAiSummary("Yapay zeka özeti şu an teknik bir nedenle oluşturulamadı. Ancak aşağıda tüm verileriniz derli toplu şekilde doktora iletilecektir.");
                     setStep(6);
                 }
                 setLoading(false);
             };
 
+            const shareWhatsApp = () => {
+                const rawData = `*HASTA DETAYLARI:*\n- Ad Soyad: ${formData.adSoyad}\n- Yaş: ${formData.yas}\n- Boy/Kilo: ${formData.boy}/${formData.kilo}\n- Şikayetler: ${formData.sikayetler.join(', ')}\n- Kan Sulandırıcı: ${formData.kanSulandiriciAd || 'Yok'}\n- Ameliyat: ${formData.ameliyatDetay || 'Yok'}\n- İlaçlar: ${formData.tumIlaclar}`;
+                const msg = encodeURIComponent(`*YENİ HASTA ANALİZİ*\n\n*YAPAY ZEKA ÖZETİ:*\n${aiSummary}\n\n${rawData}`);
+                window.open(`https://wa.me/${DOKTOR_TEL}?text=${msg}`);
+            };
+
             return (
-                <div className="max-w-2xl mx-auto min-h-screen p-4 md:p-8">
+                <div className="max-w-2xl mx-auto min-h-screen p-4 flex flex-col justify-center">
                     <div className="bg-white rounded-3xl shadow-2xl overflow-hidden border border-slate-200">
-                        <div className="bg-slate-900 p-8 text-white">
+                        <div className="bg-slate-900 p-8 text-white no-print">
                             <h1 className="text-2xl font-bold tracking-tight">Dr. Tunç Koç</h1>
-                            <p className="text-blue-400 text-xs uppercase font-semibold tracking-widest mt-1">Klinik Anamnez Formu / Adım {step}</p>
+                            <p className="text-blue-400 text-sm tracking-widest uppercase mt-1">Hasta Ön Değerlendirme Formu</p>
                         </div>
 
                         <div className="p-8 md:p-12">
                             {step === 1 && (
-                                <div className="step-card space-y-4">
-                                    <h2 className="text-xl font-bold border-l-4 border-blue-600 pl-4 text-slate-800">Kişisel Bilgiler</h2>
+                                <div className="step-entry space-y-6">
+                                    <h2 className="text-2xl font-bold text-slate-800 border-l-4 border-blue-600 pl-4">Kişisel Bilgiler</h2>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                         <input type="text" placeholder="Ad Soyad" className="p-4 bg-slate-50 rounded-xl" onChange={e => update('adSoyad', e.target.value)} />
-                                        <input type="text" placeholder="Telefon" className="p-4 bg-slate-50 rounded-xl" onChange={e => update('tel', e.target.value)} />
                                         <input type="number" placeholder="Yaş" className="p-4 bg-slate-50 rounded-xl" onChange={e => update('yas', e.target.value)} />
-                                        <input type="text" placeholder="Yaşadığınız Şehir" className="p-4 bg-slate-50 rounded-xl" onChange={e => update('sehir', e.target.value)} />
+                                        <input type="text" placeholder="Telefon" className="p-4 bg-slate-50 rounded-xl" onChange={e => update('tel', e.target.value)} />
+                                        <input type="text" placeholder="Şehir" className="p-4 bg-slate-50 rounded-xl" onChange={e => update('sehir', e.target.value)} />
                                         <input type="number" placeholder="Boy (cm)" className="p-4 bg-slate-50 rounded-xl" onChange={e => update('boy', e.target.value)} />
                                         <input type="number" placeholder="Kilo (kg)" className="p-4 bg-slate-50 rounded-xl" onChange={e => update('kilo', e.target.value)} />
-                                        <input type="text" placeholder="Meslek" className="p-4 bg-slate-50 rounded-xl md:col-span-2" onChange={e => update('meslek', e.target.value)} />
                                     </div>
                                 </div>
                             )}
 
                             {step === 2 && (
-                                <div className="step-card space-y-4">
-                                    <h2 className="text-xl font-bold border-l-4 border-blue-600 pl-4 text-slate-800">Şikayetleriniz</h2>
-                                    <div className="grid grid-cols-1 gap-2">
+                                <div className="step-entry space-y-6">
+                                    <h2 className="text-2xl font-bold text-slate-800 border-l-4 border-blue-600 pl-4">Şikayetler</h2>
+                                    <div className="grid grid-cols-1 gap-3">
                                         {['Belim ağrıyor', 'Belim, kalçam ve bacağım ağrıyor', 'Boynum ağrıyor', 'Boynum, omuzum ve kolum ağrıyor', 'Sırtım ağrıyor', 'Kuvvet kaybı yaşıyorum', 'His kaybı yaşıyorum'].map(i => (
-                                            <button key={i} onClick={() => toggle(i)} className={`p-4 rounded-xl text-left border ${formData.sikayetler.includes(i) ? 'bg-blue-600 text-white border-blue-600' : 'bg-slate-50 border-slate-200'}`}>{i}</button>
+                                            <button key={i} onClick={() => toggle(i)} className={`p-4 rounded-xl text-left transition ${formData.sikayetler.includes(i) ? 'bg-blue-600 text-white shadow-lg' : 'bg-slate-50 hover:bg-slate-100'}`}>{i}</button>
                                         ))}
                                     </div>
                                     <input type="text" placeholder="Şikayetleriniz ne zaman başladı?" className="w-full p-4 bg-slate-50 rounded-xl" onChange={e => update('sikayetBaslangic', e.target.value)} />
@@ -106,75 +119,58 @@
                             )}
 
                             {step === 3 && (
-                                <div className="step-card space-y-4">
-                                    <h2 className="text-xl font-bold border-l-4 border-blue-600 pl-4 text-slate-800">İlaç ve Fizik Tedavi</h2>
-                                    <textarea placeholder="Omurga sorununuz için hangi ilaçları ne kadar süredir kullandınız? Hangilerine devam ediyorsunuz?" className="w-full p-4 bg-slate-50 rounded-xl h-32" onChange={e => update('omurgaIlaclar', e.target.value)} />
-                                    <div className="p-4 bg-blue-50 rounded-2xl">
-                                        <p className="font-semibold mb-2">Fizik tedavi yapıldı mı?</p>
-                                        <div className="flex gap-2">
-                                            {['Hayır', 'Evet'].map(o => (
-                                                <button key={o} onClick={() => update('fizikTedavi', o)} className={`px-6 py-2 rounded-full font-bold ${formData.fizikTedavi === o ? 'bg-blue-600 text-white' : 'bg-white text-blue-600 border'}`}>{o}</button>
-                                            ))}
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
-
-                            {step === 4 && (
-                                <div className="step-card space-y-4">
-                                    <h2 className="text-xl font-bold border-l-4 border-blue-600 pl-4 text-slate-800">Tedavi Geçmişi</h2>
-                                    <div className="p-4 bg-slate-50 rounded-2xl space-y-3">
-                                        <p className="font-semibold text-sm italic">Girişimsel ağrı tedavisi yapıldı mı?</p>
-                                        <select className="w-full p-3 rounded-lg border" onChange={e => update('girisimselTedavi', e.target.value)}>
-                                            <option value="Hayır">Hayır</option>
-                                            <option value="Evet">Evet</option>
-                                        </select>
-                                        {formData.girisimselTedavi === 'Evet' && (
-                                            <textarea className="w-full p-3 rounded-lg border" placeholder="Hangi işlem, ne zaman yapıldı, fayda sağladı mı?" onChange={e => update('girisimselDetay', e.target.value)} />
-                                        )}
-                                    </div>
-                                    <div className="p-4 bg-slate-50 rounded-2xl space-y-3">
-                                        <p className="font-semibold text-sm italic">Daha önce omurga ameliyatı yapıldı mı?</p>
+                                <div className="step-entry space-y-6">
+                                    <h2 className="text-2xl font-bold border-l-4 border-blue-600 pl-4">İlaç ve Ameliyat</h2>
+                                    <textarea placeholder="Omurga sorununuz için kullandığınız ilaçlar ve süreleri?" className="w-full p-4 bg-slate-50 rounded-xl h-24" onChange={e => update('omurgaIlaclar', e.target.value)} />
+                                    <div className="p-4 bg-slate-50 rounded-2xl border">
+                                        <p className="font-semibold mb-2">Daha önce omurga ameliyatı oldunuz mu?</p>
                                         <select className="w-full p-3 rounded-lg border" onChange={e => update('ameliyat', e.target.value)}>
                                             <option value="Hayır">Hayır</option>
                                             <option value="Evet">Evet</option>
                                         </select>
                                         {formData.ameliyat === 'Evet' && (
-                                            <textarea className="w-full p-3 rounded-lg border" placeholder="Tarih, nerede yapıldı, şikayetler geçti mi?" onChange={e => update('ameliyatDetay', e.target.value)} />
+                                            <textarea className="mt-3 w-full p-3 rounded-lg border" placeholder="Yıl, Yer, Şikayetler geçti mi?" onChange={e => update('ameliyatDetay', e.target.value)} />
                                         )}
                                     </div>
                                 </div>
                             )}
 
-                            {step === 5 && (
-                                <div className="step-card space-y-4">
-                                    <h2 className="text-xl font-bold border-l-4 border-blue-600 pl-4 text-slate-800">Genel Sağlık</h2>
-                                    <input type="text" placeholder="Son filmler (MR/BT) ne zaman yapıldı?" className="w-full p-4 bg-slate-50 rounded-xl" onChange={e => update('sonFilm', e.target.value)} />
+                            {step === 4 && (
+                                <div className="step-entry space-y-6">
+                                    <h2 className="text-2xl font-bold border-l-4 border-blue-600 pl-4">Genel Sağlık</h2>
                                     <textarea placeholder="Genel hastalıklarınız (Kalp, Diyabet...)" className="w-full p-4 bg-slate-50 rounded-xl h-24" onChange={e => update('genelSaglik', e.target.value)} />
                                     <div className="p-4 bg-red-50 rounded-2xl">
-                                        <p className="font-bold text-red-800 mb-2 italic text-sm uppercase">Kan sulandırıcı kullanıyor musunuz?</p>
+                                        <p className="font-bold text-red-800 mb-2">Kan sulandırıcı kullanıyor musunuz?</p>
                                         <select className="w-full p-3 rounded-lg border" onChange={e => update('kanSulandirici', e.target.value)}>
                                             <option value="Hayır">Hayır</option>
                                             <option value="Evet">Evet</option>
                                         </select>
                                         {formData.kanSulandirici === 'Evet' && (
-                                            <input type="text" placeholder="İlacın adı?" className="mt-2 w-full p-3 rounded-lg border ring-1 ring-red-100" onChange={e => update('kanSulandiriciAd', e.target.value)} />
+                                            <input type="text" placeholder="İlaç adı?" className="mt-3 w-full p-3 rounded-lg border" onChange={e => update('kanSulandiriciAd', e.target.value)} />
                                         )}
                                     </div>
-                                    <textarea placeholder="Tüm kullandığınız ilaçların adları?" className="w-full p-4 bg-slate-50 rounded-xl h-24" onChange={e => update('tumIlaclar', e.target.value)} />
+                                    <textarea placeholder="Tüm ilaçlarınızın adları?" className="w-full p-4 bg-slate-50 rounded-xl h-24" onChange={e => update('tumIlaclar', e.target.value)} />
                                 </div>
                             )}
 
                             {step === 6 ? (
-                                <div className="step-card space-y-6 text-center">
-                                    <div className="p-6 bg-blue-50 rounded-3xl border-2 border-dashed border-blue-200 text-blue-900 italic text-sm leading-relaxed">"{aiSummary}"</div>
-                                    <button onClick={() => window.open(`https://wa.me/${DOKTOR_TEL}?text=${encodeURIComponent("*HASTA ÖZETİ:*\n" + aiSummary + "\n\n*DETAYLAR:*\n" + formData.adSoyad + ", " + formData.yas + "y")}`)} className="w-full bg-[#25D366] text-white p-5 rounded-2xl font-bold shadow-xl flex items-center justify-center gap-2 transition active:scale-95"><i data-lucide="send"></i> WHATSAPP İLE GÖNDER</button>
-                                    <button onClick={() => window.print()} className="w-full bg-slate-900 text-white p-5 rounded-2xl font-bold flex items-center justify-center gap-2 no-print transition active:scale-95"><i data-lucide="printer"></i> FORMU YAZDIR (A4)</button>
+                                <div className="step-entry space-y-6 text-center">
+                                    <div className="p-6 bg-blue-50 rounded-3xl border-2 border-dashed border-blue-200 text-blue-900 italic text-sm leading-relaxed">
+                                        "{aiSummary}"
+                                    </div>
+                                    <button onClick={shareWhatsApp} className="w-full bg-[#25D366] text-white p-5 rounded-2xl font-bold shadow-xl flex items-center justify-center gap-2">
+                                        <i data-lucide="send"></i> WHATSAPP İLE GÖNDER
+                                    </button>
+                                    <button onClick={() => window.print()} className="w-full bg-slate-900 text-white p-5 rounded-2xl font-bold flex items-center justify-center gap-2 no-print">
+                                        <i data-lucide="printer"></i> FORMU YAZDIR (A4)
+                                    </button>
                                 </div>
                             ) : (
                                 <div className="mt-12 flex justify-between items-center no-print">
-                                    <button onClick={() => setStep(s => s - 1)} disabled={step === 1} className={`font-bold text-xs tracking-widest ${step === 1 ? 'opacity-0' : 'text-slate-400'}`}>GERİ</button>
-                                    <button onClick={() => step === 5 ? generateAI() : setStep(s => s + 1)} className="bg-blue-600 text-white px-12 py-4 rounded-2xl font-bold shadow-xl transition active:scale-95">{loading ? 'İŞLENİYOR...' : (step === 5 ? 'TAMAMLA' : 'İLERİ')}</button>
+                                    <button onClick={() => setStep(s => s - 1)} disabled={step === 1} className={`font-bold uppercase tracking-widest text-sm ${step === 1 ? 'opacity-0' : 'text-slate-400'}`}>Geri</button>
+                                    <button onClick={() => step === 4 ? generateAI() : setStep(s => s + 1)} className="bg-blue-600 text-white px-12 py-4 rounded-2xl font-bold shadow-2xl active:scale-95 transition">
+                                        {loading ? 'ANALİZ EDİLİYOR...' : (step === 4 ? 'BİTİR' : 'İLERİ')}
+                                    </button>
                                 </div>
                             )}
                         </div>
