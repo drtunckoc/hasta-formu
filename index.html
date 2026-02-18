@@ -3,21 +3,28 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dr. Tunç Koç - Klinik Anamnez Sistemi</title>
+    <title>Dr. Tunç Koç - Klinik Anamnez Formu</title>
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; background: #f8fafc; color: #1e293b; }
+        @media print { .no-print { display: none !important; } body { background: white; } .print-area { box-shadow: none !important; border: none !important; } }
+        .step-transition { animation: fadeIn 0.4s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
 </head>
 <body>
     <div id="root"></div>
     <script type="text/babel">
         const { useState, useEffect } = React;
 
-        // --- AYARLAR: YENİ ALDIĞINIZ ANAHTARI BURAYA YAZIN ---
-        const API_KEY = "AIzaSyBHGyHJk3s2gkGGkPIFm0HmH2crRb7uQQs"; 
-        const DOKTOR_TEL = "905433506012"; 
+        // --- AYARLAR ---
+        const API_KEY = "BURAYA_API_ANAHTARINI_YAZIN"; 
+        const DOKTOR_TEL = "905XXXXXXXXXX"; 
 
         const App = () => {
             const [step, setStep] = useState(1);
@@ -28,10 +35,13 @@
                 yurumeMesafesi: '', geceAgrisi: 'Hayır', acilDurum: 'Hayır',
                 omurgaIlaclar: '', fizikTedavi: 'Hayır', fizikTedaviFayda: '',
                 girisimselTedavi: 'Hayır', girisimselDetay: '',
-                ameliyat: 'Hayır', ameliyatDetay: '', sonFilm: '', genelSaglik: '', 
-                kanSulandirici: 'Hayır', kanSulandiriciAd: '', tumIlaclar: ''
+                ameliyat: 'Hayır', ameliyatDetay: '',
+                sonFilm: '', genelSaglik: '', kanSulandirici: 'Hayır', kanSulandiriciAd: '',
+                tumIlaclar: ''
             });
             const [aiSummary, setAiSummary] = useState('');
+
+            useEffect(() => { if(window.lucide) lucide.createIcons(); }, [step, aiSummary]);
 
             const update = (f, v) => setFormData(p => ({ ...p, [f]: v }));
             const toggle = (i) => {
@@ -42,53 +52,186 @@
             const generateAI = async () => {
                 setLoading(true);
                 try {
-                    // 2026 GÜNCELLEMESİ: v1 sürümü ve gemini-3-flash model ismi
                     const res = await fetch(`https://generativelanguage.googleapis.com/v1/models/gemini-3-flash:generateContent?key=${API_KEY}`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ contents: [{ parts: [{ text: `Sen bir omurga cerrahı asistanısın. Aşağıdaki verileri profesyonel bir tıbbi özet yap: Hasta: ${formData.adSoyad}, ${formData.yas}y. Şikayet: ${formData.sikayetler.join(', ')}. Ameliyat: ${formData.ameliyatDetay}. Kan Sulandırıcı: ${formData.kanSulandiriciAd}.` }] }] })
+                        body: JSON.stringify({ contents: [{ parts: [{ text: `Sen profesyonel bir omurga cerrahı asistanısın. Aşağıdaki verileri 4-5 cümlelik tıbbi özet yap. Varsa kırmızı bayrakları (gece ağrısı, acil bulgular) vurgula:\nHasta: ${formData.adSoyad}, ${formData.yas}y. Şikayet: ${formData.sikayetler.join(', ')}. Başlangıç: ${formData.sikayetIlk}, Artış: ${formData.sikayetArtis}. Yürüme: ${formData.yurumeMesafesi}. Gece Ağrısı: ${formData.geceAgrisi}. Acil Bulgular: ${formData.acilDurum}. Ameliyat Öyküsü: ${formData.ameliyatDetay}. Kan Sulandırıcı: ${formData.kanSulandiriciAd}.` }] }] })
                     });
                     const data = await res.json();
                     if (data.candidates) {
                         setAiSummary(data.candidates[0].content.parts[0].text);
                     } else { throw new Error(); }
                 } catch (e) {
-                    setAiSummary("AI Özeti şu an meşgul, detaylar aşağıda maddeler halindedir.");
+                    setAiSummary("Yapay zeka özeti şu an hazırlanamadı. Ancak tüm verileriniz aşağıda derli toplu şekilde doktora iletilecektir.");
                 }
                 setStep(6);
                 setLoading(false);
             };
 
             const shareWhatsApp = () => {
-                const text = `*HASTA ANALİZİ*\n\n*Özet:* ${aiSummary}\n\n*VERİLER:* ${formData.adSoyad}, ${formData.yas}y\n-Şikayet: ${formData.sikayetler.join(', ')}\n-İlaçlar: ${formData.tumIlaclar}`;
-                window.open(`https://wa.me/${DOKTOR_TEL}?text=${encodeURIComponent(text)}`);
+                const rawData = `*YENİ HASTA ANALİZİ*\n\n*Özet:* ${aiSummary}\n\n*DETAYLAR:*\n- Hasta: ${formData.adSoyad}, ${formData.yas}y\n- Şikayetler: ${formData.sikayetler.join(', ')}\n- Acil Bulgular: ${formData.acilDurum}\n- Yürüme: ${formData.yurumeMesafesi}\n- İlaçlar: ${formData.tumIlaclar}`;
+                window.open(`https://wa.me/${DOKTOR_TEL}?text=${encodeURIComponent(rawData)}`);
             };
 
             return (
-                <div className="max-w-2xl mx-auto p-4 md:p-8 bg-white min-h-screen">
-                    {/* Form adımları buraya gelecek... */}
-                    <div className="bg-slate-900 p-6 rounded-t-3xl text-white">
-                        <h1 className="text-xl font-bold">Dr. Tunç Koç Anamnez Formu</h1>
-                        <p className="text-xs opacity-50">Adım {step} / 6</p>
-                    </div>
-                    
-                    <div className="p-6 border rounded-b-3xl shadow-lg">
-                        {step === 1 && (
-                            <div className="space-y-4">
-                                <h2 className="font-bold">Kişisel Bilgiler</h2>
-                                <input type="text" placeholder="Ad Soyad" className="w-full p-4 border rounded-xl" onChange={e => update('adSoyad', e.target.value)} />
-                                <input type="number" placeholder="Yaş" className="w-full p-4 border rounded-xl" onChange={e => update('yas', e.target.value)} />
-                                <button onClick={() => setStep(2)} className="w-full bg-blue-600 text-white p-4 rounded-xl font-bold">İLERİ</button>
-                            </div>
-                        )}
-                        {/* Diğer adımlar (2-5) buraya eklenecek... */}
-                        {step === 6 && (
-                            <div className="space-y-6">
-                                <div className="p-4 bg-blue-50 border-2 border-dashed rounded-2xl italic text-sm leading-relaxed">"{aiSummary}"</div>
-                                <button onClick={shareWhatsApp} className="w-full bg-[#25D366] text-white p-5 rounded-2xl font-bold">WHATSAPP İLE GÖNDER</button>
-                                <button onClick={() => window.print()} className="w-full bg-slate-900 text-white p-5 rounded-2xl font-bold">YAZDIR (A4)</button>
-                            </div>
-                        )}
+                <div className="max-w-2xl mx-auto min-h-screen p-4 flex flex-col justify-center">
+                    <div className="bg-white rounded-3xl shadow-2xl overflow-hidden border border-slate-200 print-area">
+                        <div className="bg-slate-900 p-8 text-white no-print">
+                            <h1 className="text-2xl font-bold tracking-tight text-white">Dr. Tunç Koç</h1>
+                            <p className="text-blue-400 text-xs uppercase font-semibold tracking-widest mt-1">Girişimsel Omurga Cerrahisi Anamnez Formu</p>
+                        </div>
+
+                        <div className="p-8 md:p-12">
+                            {step === 1 && (
+                                <div className="step-transition space-y-6">
+                                    <h2 className="text-xl font-bold border-l-4 border-blue-600 pl-4">1. Kişisel Bilgiler</h2>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <input type="text" placeholder="Ad Soyad" className="p-4 bg-slate-50 rounded-xl" value={formData.adSoyad} onChange={e => update('adSoyad', e.target.value)} />
+                                        <input type="text" placeholder="Telefon" className="p-4 bg-slate-50 rounded-xl" value={formData.tel} onChange={e => update('tel', e.target.value)} />
+                                        <input type="number" placeholder="Yaş" className="p-4 bg-slate-50 rounded-xl" value={formData.yas} onChange={e => update('yas', e.target.value)} />
+                                        <input type="text" placeholder="Şehir" className="p-4 bg-slate-50 rounded-xl" value={formData.sehir} onChange={e => update('sehir', e.target.value)} />
+                                        <input type="number" placeholder="Boy (cm)" className="p-4 bg-slate-50 rounded-xl" value={formData.boy} onChange={e => update('boy', e.target.value)} />
+                                        <input type="number" placeholder="Kilo (kg)" className="p-4 bg-slate-50 rounded-xl" value={formData.kilo} onChange={e => update('kilo', e.target.value)} />
+                                        <input type="text" placeholder="Meslek" className="p-4 bg-slate-50 rounded-xl md:col-span-2" value={formData.meslek} onChange={e => update('meslek', e.target.value)} />
+                                    </div>
+                                </div>
+                            )}
+
+                            {step === 2 && (
+                                <div className="step-transition space-y-6">
+                                    <h2 className="text-xl font-bold border-l-4 border-blue-600 pl-4">2. Şikayet ve Zamanlama</h2>
+                                    <p className="text-xs text-slate-400 italic font-medium -mt-4">Birden fazla seçenek işaretleyebilirsiniz.</p>
+                                    <div className="grid grid-cols-1 gap-2">
+                                        {['Belim ağrıyor', 'Bel, kalça ve bacak ağrısı', 'Boynum ağrıyor', 'Boyun, omuz ve kol ağrısı', 'Sırtım ağrıyor', 'Kuvvet kaybı yaşıyorum', 'His kaybı yaşıyorum'].map(i => (
+                                            <button key={i} onClick={() => toggle(i)} className={`p-4 rounded-xl text-left border ${formData.sikayetler.includes(i) ? 'bg-blue-600 text-white border-blue-600 shadow-md' : 'bg-slate-50 hover:bg-slate-100 transition'}`}>{i}</button>
+                                        ))}
+                                    </div>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t">
+                                        <div className="space-y-1">
+                                            <label className="text-xs font-bold text-slate-500">İLK BAŞLANGIÇ TARİHİ</label>
+                                            <input type="text" placeholder="Örn: 2 yıl önce" className="w-full p-4 bg-slate-50 rounded-xl" value={formData.sikayetIlk} onChange={e => update('sikayetIlk', e.target.value)} />
+                                        </div>
+                                        <div className="space-y-1">
+                                            <label className="text-xs font-bold text-red-500">ŞİKAYETLERDE ARTIŞ TARİHİ</label>
+                                            <input type="text" placeholder="Örn: 10 gündür şiddetli" className="w-full p-4 bg-slate-50 rounded-xl ring-1 ring-red-100" value={formData.sikayetArtis} onChange={e => update('sikayetArtis', e.target.value)} />
+                                        </div>
+                                    </div>
+                                    <select className="w-full p-4 bg-slate-100 rounded-xl font-medium" value={formData.agriKarakter} onChange={e => update('agriKarakter', e.target.value)}>
+                                        <option value="">Ağrınız ne zaman artıyor?</option>
+                                        <option value="Ayakta durunca">Ayakta durunca</option>
+                                        <option value="Yürüyünce">Yürüyünce</option>
+                                        <option value="Oturunca">Oturunca</option>
+                                        <option value="Öne eğilince">Öne eğilince</option>
+                                    </select>
+                                </div>
+                            )}
+
+                            {step === 3 && (
+                                <div className="step-transition space-y-6">
+                                    <h2 className="text-xl font-bold border-l-4 border-red-600 pl-4">3. Kritik Sorular</h2>
+                                    <div className="space-y-4">
+                                        <div className="p-4 bg-slate-50 rounded-2xl border">
+                                            <label className="font-semibold text-sm">Kesintisiz ne kadar (mesafe/süre) yürüyebiliyorsunuz?</label>
+                                            <input type="text" placeholder="Örn: 100 metre" className="w-full mt-2 p-3 rounded-lg ring-1 ring-slate-200" value={formData.yurumeMesafesi} onChange={e => update('yurumeMesafesi', e.target.value)} />
+                                        </div>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            <div className="p-4 bg-slate-50 rounded-2xl border">
+                                                <p className="font-semibold text-xs mb-2 uppercase tracking-tighter">Gece uykudan uyandıran ağrı?</p>
+                                                <div className="flex gap-2">
+                                                    {['Hayır', 'Evet'].map(o => (
+                                                        <button key={o} onClick={() => update('geceAgrisi', o)} className={`flex-1 py-2 rounded-lg font-bold text-sm ${formData.geceAgrisi === o ? 'bg-slate-800 text-white' : 'bg-white border'}`}>{o}</button>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                            <div className="p-4 bg-red-50 rounded-2xl border border-red-100">
+                                                <p className="font-bold text-xs mb-2 text-red-800 uppercase italic">İdrar kaçırma veya uyuşma?</p>
+                                                <div className="flex gap-2">
+                                                    {['Hayır', 'Evet'].map(o => (
+                                                        <button key={o} onClick={() => update('acilDurum', o)} className={`flex-1 py-2 rounded-lg font-bold text-sm ${formData.acilDurum === o ? 'bg-red-600 text-white' : 'bg-white border'}`}>{o}</button>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {step === 4 && (
+                                <div className="step-transition space-y-6">
+                                    <h2 className="text-xl font-bold border-l-4 border-blue-600 pl-4">4. Tedavi Öyküsü</h2>
+                                    <div className="space-y-4">
+                                        <textarea placeholder="Omurga ilaçları ve sağladığı fayda?" className="w-full p-4 bg-slate-50 rounded-xl h-24" value={formData.omurgaIlaclar} onChange={e => update('omurgaIlaclar', e.target.value)} />
+                                        <div className="p-4 bg-slate-50 rounded-2xl border">
+                                            <p className="text-sm font-semibold mb-2">Fizik tedavi aldınız mı? Fayda sağladı mı?</p>
+                                            <select className="w-full p-3 rounded-lg border" value={formData.fizikTedavi} onChange={e => update('fizikTedavi', e.target.value)}>
+                                                <option value="Hayır">Hayır</option>
+                                                <option value="Evet">Evet</option>
+                                            </select>
+                                            {formData.fizikTedavi === 'Evet' && <input type="text" placeholder="Detay ve fayda durumu?" className="mt-2 w-full p-3 rounded-lg border" onChange={e => update('fizikTedaviFayda', e.target.value)} />}
+                                        </div>
+                                        <div className="p-4 bg-blue-50 rounded-2xl border border-blue-100">
+                                            <p className="text-sm font-semibold mb-2 text-blue-800">Girişimsel ağrı tedavisi yapıldı mı? (Fayda gördünüz mü?)</p>
+                                            <select className="w-full p-3 rounded-lg border" value={formData.girisimselTedavi} onChange={e => update('girisimselTedavi', e.target.value)}>
+                                                <option value="Hayır">Hayır</option>
+                                                <option value="Evet">Evet</option>
+                                            </select>
+                                            {formData.girisimselTedavi === 'Evet' && <textarea className="mt-2 w-full p-3 rounded-lg border" placeholder="Hangi işlem, ne zaman, nerede, faydası?" onChange={e => update('girisimselDetay', e.target.value)} />}
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {step === 5 && (
+                                <div className="step-transition space-y-6">
+                                    <h2 className="text-xl font-bold border-l-4 border-blue-600 pl-4">5. Ameliyat & Genel Sağlık</h2>
+                                    <div className="space-y-4">
+                                        <div className="p-4 bg-slate-100 rounded-2xl">
+                                            <p className="text-sm font-semibold mb-2">Omurga ameliyatı yapıldı mı?</p>
+                                            <select className="w-full p-3 rounded-lg border" value={formData.ameliyat} onChange={e => update('ameliyat', e.target.value)}>
+                                                <option value="Hayır">Hayır</option>
+                                                <option value="Evet">Evet</option>
+                                            </select>
+                                            {formData.ameliyat === 'Evet' && <textarea className="mt-2 w-full p-3 rounded-lg border" placeholder="Yıl, yer, şikayetler geçti mi?" onChange={e => update('ameliyatDetay', e.target.value)} />}
+                                        </div>
+                                        <input type="text" placeholder="Son filmler (MR/BT) ne zaman yapıldı?" className="w-full p-4 bg-slate-50 rounded-xl" value={formData.sonFilm} onChange={e => update('sonFilm', e.target.value)} />
+                                        <textarea placeholder="Diğer hastalıklarınız (Kalp, Şeker...)" className="w-full p-4 bg-slate-50 rounded-xl h-20" value={formData.genelSaglik} onChange={e => update('genelSaglik', e.target.value)} />
+                                        <div className="p-4 bg-red-50 rounded-2xl">
+                                            <p className="font-bold text-red-800 text-xs mb-2">KAN SULANDIRICI KULLANIYOR MUSUNUZ?</p>
+                                            <div className="flex gap-2">
+                                                {['Hayır', 'Evet'].map(o => (
+                                                    <button key={o} onClick={() => update('kanSulandirici', o)} className={`flex-1 py-2 rounded-lg font-bold ${formData.kanSulandirici === o ? 'bg-red-600 text-white' : 'bg-white border'}`}>{o}</button>
+                                                ))}
+                                            </div>
+                                            {formData.kanSulandirici === 'Evet' && <input type="text" placeholder="İlacın adı?" className="mt-2 w-full p-3 rounded-lg border" onChange={e => update('kanSulandiriciAd', e.target.value)} />}
+                                        </div>
+                                        <textarea placeholder="Kullandığınız tüm ilaçların adları?" className="w-full p-4 bg-slate-50 rounded-xl h-20" value={formData.tumIlaclar} onChange={e => update('tumIlaclar', e.target.value)} />
+                                    </div>
+                                </div>
+                            )}
+
+                            {step === 6 ? (
+                                <div className="step-transition space-y-6 text-center">
+                                    <div className="p-6 bg-blue-50 rounded-3xl border-2 border-dashed border-blue-200 text-blue-900 italic text-sm leading-relaxed">"{aiSummary}"</div>
+                                    <div className="flex flex-col gap-3 no-print">
+                                        <button onClick={shareWhatsApp} className="w-full bg-[#25D366] text-white p-5 rounded-2xl font-bold shadow-xl flex items-center justify-center gap-2 active:scale-95 transition-all"><i data-lucide="send"></i> WHATSAPP İLE DOKTORA İLET</button>
+                                        <button onClick={() => window.print()} className="w-full bg-slate-900 text-white p-5 rounded-2xl font-bold flex items-center justify-center gap-2 transition active:scale-95"><i data-lucide="printer"></i> FORMU YAZDIR (A4)</button>
+                                    </div>
+                                    <div className="hidden print:block text-left text-xs border-t pt-8 mt-8 text-slate-400">
+                                        <div className="flex justify-between">
+                                            <span>Hasta İmzası: ____________________</span>
+                                            <span>Tarih: ____/____/202__</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="mt-12 flex justify-between items-center no-print">
+                                    <button onClick={() => setStep(s => s - 1)} disabled={step === 1} className={`font-bold text-xs tracking-widest ${step === 1 ? 'opacity-0' : 'text-slate-400'}`}>GERİ</button>
+                                    <button onClick={() => step === 5 ? generateAI() : setStep(s => s + 1)} className="bg-blue-600 text-white px-10 py-4 rounded-2xl font-bold shadow-xl transition active:scale-95">
+                                        {loading ? 'ANALİZ EDİLİYOR...' : (step === 5 ? 'BİTİR' : 'İLERİ')}
+                                    </button>
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </div>
             );
